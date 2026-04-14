@@ -61,8 +61,7 @@ Temperature API
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Ham15-art/TemperatureApi.git
-cd TemperatureApi
+git clone https://github.com/Ham15-art/temperature-telemetry-api-dotnet.git
 ```
 ### 2. Run the API
 
@@ -99,7 +98,12 @@ example response:
 ```json
 {
   "status": "received",
-  "deviceId": "device-123"
+  "message": "Temperature reading is accepted",
+  "data": {
+    "deviceId": "device-123",
+    "value": 23.5,
+    "timestampUtc": "2026-04-09T12:00:00Z"
+  }
 }
 ```
 > Note: JSON uses camelCase naming, while C# models use PascalCase.
@@ -164,7 +168,7 @@ info: TemperatureApi.Controllers.TelemetryController[0]
 info: TemperatureApi.Controllers.TelemetryController[0]
       Timestamp: 04/11/2026 13:22:51
 warn: TemperatureApi.Controllers.TelemetryController[0]
-      DeviceId missing
+      Validation failed: DeviceId missing
 ```
 ---
 
