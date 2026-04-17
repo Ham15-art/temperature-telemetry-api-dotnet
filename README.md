@@ -169,9 +169,9 @@ curl -X POST http://localhost:5244/temperature \
 
 The API validates incoming telemetry data:
 
+- Request must not be Null
 - `deviceId` must not be empty
 - `value` must be within realistic bounds (-50 to 150 °C)
-- `timestampUtc` must be a valid UTC timestamp
 
 Invalid requests return HTTP 400 with a descriptive message.
 
@@ -244,10 +244,9 @@ Data Flow:
 
 ## Possible Improvements:
 
-- Add validation (FluentValidation)
-- Add logging (Serilog)
-- Add authentication
-- Add retry handling on client side
+- Add structured validation using FluentValidation
+- Add Authentication & Authorization
+- Add Unit & Integration Tests
 
 ---
 

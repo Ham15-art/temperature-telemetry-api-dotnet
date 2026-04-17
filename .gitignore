@@ -28,5 +28,9 @@ packages/
 # Test results
 TestResults/
 
+# Frontend / Node (if present)
+node_modules/
+package-lock.json
+
 # Misc
 *.cache
