@@ -44,15 +44,46 @@ Typical use cases:
 
 ## Architecture
 
-```text
-Device Simulator
-    ↓
-Industrial Gateway (.NET Worker)
-    ↓
-Temperature API
-    ↓
-(Future) Database / Dashboard
+This API follows a simple layered structure where the controller handles HTTP interaction, while persistence is abstracted via a repository pattern.
+
+## Data Flow inside API
+
+```mermaid
+flowchart TD
+    A[Client / Sender] --> B[TelemetryController]
+    B --> C{Validate Request}
+
+    C -->|Null body| D[400 BadRequest]
+    C -->|Missing DeviceId| E[400 BadRequest]
+    C -->|Invalid temperature| F[400 BadRequest]
+
+    C -->|Valid| G[ILogger Logging]
+    G --> H[MongoDB Repository / Persistence]
+    H --> I[(MongoDB Atlas)]
+    H --> J[200 OK Response]
 ```
+
+## Components
+
+- **TelemetryController**
+  - Entry point for incoming HTTP requests
+  - Handles validation, saving into database and response formatting
+
+- **TemperatureReading (Model)**
+  - Represents the telemetry data structure
+  - Contains DeviceId, Value, TimestampUtc
+
+- **ITemperatureRepository**
+  - Defines the contract for data persistence
+  - Decouples controller from database implementation
+
+- **MongoTemperatureRepository**
+  - Implements data storage using MongoDB
+  - Handles communication with MongoDB Atlas
+
+- **Program.cs**
+  - Configures dependency injection
+  - Registers services and application pipeline
 
 ---
 
@@ -63,6 +94,13 @@ Temperature API
 ```bash
 git clone https://github.com/Ham15-art/temperature-telemetry-api-dotnet.git
 ```
+
+### 2. Configure Cloud Database (MongoDB)
+
+1. Create MongoDB Atlas cluster
+2. Create Database user
+3. Connect: Add connection string to `appsettings.json`
+
 ### 2. Run the API
 
 ```bash
@@ -148,13 +186,17 @@ Invalid requests return HTTP 400 with a descriptive message.
 
 ```text
 info: TemperatureApi.Controllers.TelemetryController[0]
-      Request received
+      Request Received
 info: TemperatureApi.Controllers.TelemetryController[0]
-      DeviceId: sensor-123
+      DeviceId: Sensor1
 info: TemperatureApi.Controllers.TelemetryController[0]
-      Value: 25
+      Temperature value: 48.1302667150544
 info: TemperatureApi.Controllers.TelemetryController[0]
-      TimeStamp: 2026-04-11T13:22:51.9960000Z
+      Timestamp: 04/17/2026 08:17:45
+info: TemperatureApi.Controllers.TelemetryController[0]
+      Temperature reading accepted
+info: TemperatureApi.Repositories.MongoTemperatureRepository[0]
+      Saved reading to MongoDB for Sensor1 with value 48.1302667150544
 ```
 ### Unsuccessful request
 
@@ -162,11 +204,11 @@ info: TemperatureApi.Controllers.TelemetryController[0]
 info: TemperatureApi.Controllers.TelemetryController[0]
       Request Received
 info: TemperatureApi.Controllers.TelemetryController[0]
-      DeviceId:
+      DeviceId: 
 info: TemperatureApi.Controllers.TelemetryController[0]
-      Temperature value: 40
+      Temperature value: 42.53274992816768
 info: TemperatureApi.Controllers.TelemetryController[0]
-      Timestamp: 04/11/2026 13:22:51
+      Timestamp: 04/17/2026 08:16:50
 warn: TemperatureApi.Controllers.TelemetryController[0]
       Validation failed: DeviceId missing
 ```
@@ -176,10 +218,16 @@ warn: TemperatureApi.Controllers.TelemetryController[0]
 
 This API is designed to integrate with the Industrial Gateway (.NET Worker Service):
 
-Flow:
-Device Simulator → Worker Service → Temperature API → (Future: Database / Dashboard)
+Data Flow:
 
-The Worker Service periodically reads simulated sensor data and sends it via HTTP POST to this API.
+![Data Flow](./docs/api-data-flow.svg)
+
+1. Device simulator generates temperature data
+2. Worker reads data via `IDeviceAdapter`
+3. Worker sends data periodically via `ITelemetryService` using HTTP POST
+4. API receives data (`ReceiveTemperature`)
+5. API validates input
+6. API stores data in Cloud Database (`MongoTemperatureRepository`)
 
 ---
 
@@ -190,12 +238,12 @@ The Worker Service periodically reads simulated sensor data and sends it via HTT
 - Integration with distributed systems (Worker Service)
 - Simulation of industrial telemetry pipelines (IIoT)
 - Clean and extensible backend architecture
+- Integration of a Cloud Database for persistence
 
 ---
 
 ## Possible Improvements:
 
-- Add persistence (database)
 - Add validation (FluentValidation)
 - Add logging (Serilog)
 - Add authentication

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TemperatureApi.Models;
+using TemperatureApi.Repositories;
 
 namespace TemperatureApi.Controllers;
 
@@ -9,13 +10,19 @@ public class TelemetryController : ControllerBase
 {
     //inject logger
     private readonly ILogger<TelemetryController> _logger;
-    public TelemetryController(ILogger<TelemetryController> logger)
+    private readonly ITemperatureRepository _repo;
+
+    public TelemetryController(ILogger<TelemetryController> logger, ITemperatureRepository repo)
     {
         _logger = logger;
+        _repo = repo;
     }
 
     [HttpPost]
-    public IActionResult ReceiveTemperature([FromBody] TemperatureReading reading)
+    public async Task<IActionResult> ReceiveTemperature(
+        [FromBody] TemperatureReading reading,
+        CancellationToken token
+    )
     {
         _logger.LogInformation("Request Received");
         _logger.LogInformation("DeviceId: {deviceId}", reading.DeviceId);
@@ -38,6 +45,8 @@ public class TelemetryController : ControllerBase
         }
 
         _logger.LogInformation("Temperature reading accepted");
+
+        await _repo.SaveAsync(reading, token);
         return Ok(
             new
             {

@@ -1,8 +1,11 @@
+using TemperatureApi.Repositories;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<ITemperatureRepository, MongoTemperatureRepository>();
 
 var app = builder.Build();
 
