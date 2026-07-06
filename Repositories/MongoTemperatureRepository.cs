@@ -44,11 +44,12 @@ public class MongoTemperatureRepository : ITemperatureRepository
         );
     }
 
-    public async Task<List<TemperatureReading>> GetAllAsync()
+    public async Task<List<TemperatureReading>> GetAllAsync(int limit=50)
     {
         return await _collection
             .Find(_ => true)
             .SortByDescending(x => x.TimestampUtc)
+            .Limit(limit)
             .ToListAsync();
     }
 

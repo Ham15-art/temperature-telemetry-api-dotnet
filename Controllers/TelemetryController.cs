@@ -62,10 +62,10 @@ public class TelemetryController : ControllerBase
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> GetAllReadings()
+    public async Task<IActionResult> GetAllReadings([FromQuery] int limit=50)
     {
-        _logger.LogInformation("Fetching all temperature readings");
-        var readings = await _repo.GetAllAsync();
+        _logger.LogInformation("Fetching temperature readings, limit={limit}", limit);
+        var readings = await _repo.GetAllAsync(limit);
 
         if (readings != null)
             return Ok(readings);
