@@ -34,3 +34,20 @@ package-lock.json
 
 # Misc
 *.cache
+
+# Local overrides that might contain real secrets
+appsettings.*.Local.json
+appsettings.Production.json
+
+# .env files (if you add Docker or scripts later)
+.env
+.env.*
+
+# Certificates and private keys (relevant once you add mTLS for device auth)
+*.pfx
+*.pem
+*.key
+
+# Defense-in-depth: user-secrets belongs outside the repo entirely,
+# but ignore it here too in case it's ever copied in by mistake
+**/secrets.json

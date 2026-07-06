@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TemperatureApi.Models;
 using TemperatureApi.Repositories;
@@ -6,6 +7,7 @@ namespace TemperatureApi.Controllers;
 
 [ApiController]
 [Route("temperature")]
+
 public class TelemetryController : ControllerBase
 {
     //inject logger
@@ -31,12 +33,13 @@ public class TelemetryController : ControllerBase
 
         if (reading == null)
         {
+            _logger.LogWarning("Request body is null");
             return BadRequest("No data received");
         }
         if (string.IsNullOrWhiteSpace(reading.DeviceId))
         {
             _logger.LogWarning("Validation failed: DeviceId missing");
-            return BadRequest(new { error = "DeviceId is required" });
+            return BadRequest(new ErrorResponse { Error = "DeviceId is required" });
         }
         if (reading.Value < -50 || reading.Value > 150)
         {
@@ -55,5 +58,29 @@ public class TelemetryController : ControllerBase
                 data = reading,
             }
         );
+    }
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> GetAllReadings()
+    {
+        _logger.LogInformation("Fetching all temperature readings");
+        var readings = await _repo.GetAllAsync();
+
+        if (readings != null)
+            return Ok(readings);
+        return NotFound("No readings found");
+    }
+
+    [HttpGet("latest")]
+    [Authorize]
+    public async Task<IActionResult> GetLatestReading()
+    {
+        _logger.LogInformation("Fetching latest temperature reading");
+        var reading = await _repo.GetLatestAsync();
+
+        if (reading != null)
+            return Ok(reading);
+        return NotFound("No readings found");
     }
 }

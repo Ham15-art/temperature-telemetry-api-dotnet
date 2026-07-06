@@ -43,4 +43,20 @@ public class MongoTemperatureRepository : ITemperatureRepository
             reading.Value
         );
     }
+
+    public async Task<List<TemperatureReading>> GetAllAsync()
+    {
+        return await _collection
+            .Find(_ => true)
+            .SortByDescending(x => x.TimestampUtc)
+            .ToListAsync();
+    }
+
+    public async Task<TemperatureReading?> GetLatestAsync()
+    {
+        return await _collection
+            .Find(_ => true)
+            .SortByDescending(x => x.TimestampUtc)
+            .FirstOrDefaultAsync();
+    }
 }
