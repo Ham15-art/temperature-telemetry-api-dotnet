@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Version>1.1.0</Version>
     <Description>A lightweight ASP.NET Core Web API for ingesting temperature telemetry with JWT authentication</Description>
+    <UserSecretsId>559152a5-a35d-45b1-838f-36f5b0432706</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

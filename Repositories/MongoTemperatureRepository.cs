@@ -12,14 +12,17 @@ public class MongoTemperatureRepository : ITemperatureRepository
     private readonly IMongoCollection<TemperatureReading> _collection;
     private readonly ILogger<MongoTemperatureRepository> _logger;
     private readonly IMongoClient _mongoClient;
+    private readonly IAsyncPolicy _retryPolicy;
     private bool _indexesCreated = false;
 
     public MongoTemperatureRepository(
         MongoDbOptions mongoDbOptions,
-        ILogger<MongoTemperatureRepository> logger
+        ILogger<MongoTemperatureRepository> logger,
+        IAsyncPolicy retryPolicy
     )
     {
         _logger = logger;
+        _retryPolicy = retryPolicy;
 
         _mongoClient = new MongoClient(mongoDbOptions.ConnectionString);
         var database = _mongoClient.GetDatabase(mongoDbOptions.DatabaseName);
@@ -33,7 +36,10 @@ public class MongoTemperatureRepository : ITemperatureRepository
     {
         try
         {
-            await _collection.InsertOneAsync(reading, cancellationToken: token);
+            await _retryPolicy.ExecuteAsync(
+                ct => _collection.InsertOneAsync(reading, cancellationToken: ct),
+                token
+            );
 
             _logger.LogInformation(
                 "Saved reading to MongoDB for {DeviceId} with value {Value}°C",
@@ -52,11 +58,13 @@ public class MongoTemperatureRepository : ITemperatureRepository
     {
         try
         {
-            return await _collection
-                .Find(_ => true)
-                .SortByDescending(x => x.TimestampUtc)
-                .Limit(limit)
-                .ToListAsync();
+            return await _retryPolicy.ExecuteAsync(() =>
+                _collection
+                    .Find(_ => true)
+                    .SortByDescending(x => x.TimestampUtc)
+                    .Limit(limit)
+                    .ToListAsync()
+            );
         }
         catch (Exception ex)
         {
@@ -69,10 +77,12 @@ public class MongoTemperatureRepository : ITemperatureRepository
     {
         try
         {
-            return await _collection
-                .Find(_ => true)
-                .SortByDescending(x => x.TimestampUtc)
-                .FirstOrDefaultAsync();
+            return await _retryPolicy.ExecuteAsync(() =>
+                _collection
+                    .Find(_ => true)
+                    .SortByDescending(x => x.TimestampUtc)
+                    .FirstOrDefaultAsync()
+            );
         }
         catch (Exception ex)
         {

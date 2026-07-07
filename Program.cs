@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Polly;
-using Polly.CircuitBreaker;
 using System.Text;
 using TemperatureApi.Options;
 using TemperatureApi.Repositories;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,32 +34,19 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("API is running"));
 
-// Register repository with retry/circuit breaker resilience
-var mongoRetryPolicy = Policy<bool>
+// Define a retry policy for MongoDB operations
+var mongoRetryPolicy = Policy
     .Handle<Exception>()
-    .OrResult(r => !r)
-    .WaitAndRetryAsync(
-        retryCount: 3,
-        sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
-        onRetry: (outcome, timespan, retryCount, context) =>
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+        (exception, timeSpan) =>
         {
-            Console.WriteLine($"MongoDB retry attempt {retryCount} after {timespan.TotalSeconds}s");
-        }
-    )
-    .WrapAsync(
-        Policy<bool>
-            .Handle<Exception>()
-            .OrResult(r => !r)
-            .CircuitBreakerAsync(
-                handledEventsAllowedBeforeBreaking: 5,
-                durationOfBreak: TimeSpan.FromSeconds(30),
-                onBreak: (outcome, duration) =>
-                {
-                    Console.WriteLine($"MongoDB circuit breaker opened for {duration.TotalSeconds}s");
-                }
-            )
-    );
+            // Log the error and the retry attempt
+            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger("MongoRetryPolicy");
+            logger.LogWarning(exception, "An error occurred connecting to MongoDB. Waiting {TimeSpan} before next retry. ", timeSpan);
+        });
 
+// Register repository with the retry policy
+builder.Services.AddSingleton<IAsyncPolicy>(mongoRetryPolicy);
 builder.Services.AddSingleton<ITemperatureRepository, MongoTemperatureRepository>();
 
 builder.Services.AddCors(options =>
@@ -91,7 +77,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtOptions.Issuer,
             ValidAudience = jwtOptions.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
-            ClockSkew = TimeSpan.FromSeconds(5) // Allow 5 seconds for clock skew
+            ClockSkew = TimeSpan.FromSeconds(5)
         };
     });
 
