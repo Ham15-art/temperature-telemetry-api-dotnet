@@ -34,21 +34,26 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("API is running"));
 
-// Define a retry policy for MongoDB operations
-var mongoRetryPolicy = Policy
-    .Handle<Exception>()
-    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-        (exception, timeSpan) =>
-        {
-            // Log the error and the retry attempt
-            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger("MongoRetryPolicy");
-            logger.LogWarning(exception, "An error occurred connecting to MongoDB. Waiting {TimeSpan} before next retry. ", timeSpan);
-        });
-
 // Register repository with the retry policy
-builder.Services.AddSingleton<IAsyncPolicy>(mongoRetryPolicy);
+builder.Services.AddSingleton<IAsyncPolicy>(
+    sp =>
+    {
+        //sp: service provider
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("MongoRetryPolicy");
+
+        return Policy
+            .Handle<Exception>()
+            .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                (exception, timeSpan) =>
+                {
+                    logger.LogWarning(exception, "An error occurred connecting to MongoDB. Waiting {TimeSpan} before next retry.", timeSpan);
+                });
+    }
+ );
+//if anyone ever asks for ITemperatureRepository, build a MongoTemperatureRepository." Nothing is constructed at this point.
 builder.Services.AddSingleton<ITemperatureRepository, MongoTemperatureRepository>();
 
+//add CORS policy for my react app
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -64,7 +69,7 @@ builder.Services.AddCors(options =>
     );
 });
 
-// Configure JWT authentication
+// Configure JWT authentication: registers the authentication system (JWT bearer, how to validate tokens).
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -81,11 +86,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+//registers the authorization system (the [Authorize] filter machinery, policies, roles).
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
 // Configure middleware pipeline (explicit ordering)
+//This checks which environment the app is running in (Development, Staging, Production — set via ASPNETCORE_ENVIRONMENT env variable). ->dev
+//I want Swagger UI while developing/testing locally, but I don't want it exposed in production. 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -95,8 +103,8 @@ if (app.Environment.IsDevelopment())
 // Middleware pipeline order: routing → CORS → authentication → authorization → endpoints
 app.UseRouting();
 app.UseCors("AllowReactApp");
-app.UseAuthentication();  // Who are you?
-app.UseAuthorization();   // Are you allowed in?
+app.UseAuthentication();  
+app.UseAuthorization();   
 
 // Health check endpoint
 app.MapHealthChecks("/health");
